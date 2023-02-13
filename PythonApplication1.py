@@ -96,6 +96,7 @@ class window_tk():
                 for i in range(len(self.destination)):
                     try:
                         self.odomentaryData(self.corners[self.indexId[i+1]][0],self.destination[i+1],i+1)
+                        self.botSteer()
                     except:
                         continue
         if not ret:
@@ -131,9 +132,9 @@ class window_tk():
         det = unit_vec[0]*unit_x_axis[1] - unit_vec[1]*unit_x_axis[0]
         theta = math.atan2(det,dot)
         theta = round(np.rad2deg(theta),0)
-        crcted_angle = np.arccos(np.dot(bot_unit_vec,unit_vec))
+        crcted_angle = round(np.rad2deg(np.arccos(np.dot(bot_unit_vec,unit_vec))))
         print("bot angle - {} , dest to bot angle {}".format(theta,crcted_angle))
-        return theta
+        return theta,crcted_angle
 
     def getMarkerCenter(self,corners):
         px = (corners[0][0] + corners[1][0] + corners[2][0]+ corners[3][0]) * 0.25
@@ -146,8 +147,8 @@ class window_tk():
             center_vec_mag = np.linalg.norm(np.array(bot)-np.array(center))
             left_vec_mag = np.linalg.norm(np.array(bot)-np.array(corners[0]))
             right_vec_mag = np.linalg.norm(np.array(bot)-np.array(corners[1]))
-            theta = self.anglerotated(corners,bot)
-            self.odomentary[botID]=[left_vec_mag,center_vec_mag,right_vec_mag,theta] 
+            theta,crcted_angle = self.anglerotated(corners,bot)
+            self.odomentary[botID]=[left_vec_mag,center_vec_mag,right_vec_mag,theta,crcted_angle] 
             print("{}-id {}".format(botID,self.odomentary[botID]))
             cv2.line(self.frame,(int(bot[0]),int(bot[1])),(int(center[0]),int(center[1])),(0,255,0),1)
             cv2.line(self.frame,(int(bot[0]),int(bot[1])),(int(corners[0][0]),int(corners[0][1])),(255,0,0),1)
@@ -178,6 +179,9 @@ class window_tk():
             pass
         elif(Dl==Dr):
             pass
+        
+    def botSteer(self):
+        pass
     #def isReady(self,interval,currentTime=round(time.time()*1000),prevTime=round(time.time()*1000)):
     #    while((currentTime - prevTime) < interval):
     #        currentTime = round(time.time()*1000)
