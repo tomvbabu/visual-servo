@@ -121,20 +121,24 @@ class window_tk():
         #corners, ids, rejected = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=arucoParams)
         corners, ids, rejected = detector.detectMarkers(frame)
         return corners,ids
-    def anglerotated(self,corners,bot):
+    def anglerotated(self,corners,dest):
         print("inside it")
         unit_x_axis = [1.,0.]
+        dest = np.array(dest)
         center = self.getMarkerCenter(corners)
         right_edge_midpoint = (corners[1]+corners[2])/2.
         unit_vec = (right_edge_midpoint-center)/np.linalg.norm(right_edge_midpoint-center) 
-        bot_unit_vec = bot/np.linalg.norm(bot)
+        dest_unit_vec = (dest-center)/np.linalg.norm(dest-center) 
         dot = unit_vec[0]*unit_x_axis[0] + unit_vec[1]*unit_x_axis[1] 
         det = unit_vec[0]*unit_x_axis[1] - unit_vec[1]*unit_x_axis[0]
         theta = math.atan2(det,dot)
         theta = round(np.rad2deg(theta),0)
-        crcted_angle = round(np.rad2deg(np.arccos(np.dot(bot_unit_vec,unit_vec))))
-        print("bot angle - {} , dest to bot angle {}".format(theta,crcted_angle))
-        return theta,crcted_angle
+        dot1 = dest_unit_vec[0]*unit_x_axis[0] + dest_unit_vec[1]*unit_x_axis[1] 
+        det1 = dest_unit_vec[0]*unit_x_axis[1] - dest_unit_vec[1]*unit_x_axis[0]
+        dest_angle = math.atan2(det1,dot1)
+        dest_angle = round(np.rad2deg(dest_angle),0)
+        print("bot angle - {} , dest to bot angle {}".format(theta,dest_angle))
+        return theta,dest_angle
 
     def getMarkerCenter(self,corners):
         px = (corners[0][0] + corners[1][0] + corners[2][0]+ corners[3][0]) * 0.25
