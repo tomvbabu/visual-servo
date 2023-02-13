@@ -35,7 +35,7 @@ class window_tk():
         self.vid = None
         self.ids = [5,7,10]
         self.indexId = {}
-        #self.ser = serial.Serial(port="COM7",baudrate=115200,bytesize=8,timeout=2,stopbits=serial.STOPBITS_ONE)
+        self.ser = serial.Serial(port="COM7",baudrate=115200,bytesize=8,timeout=2,stopbits=serial.STOPBITS_ONE)
         self.oval = None
         self.destination = {} # save the final point for travesring also initialize how many bot arre there
         self.odomentary = {}
@@ -96,7 +96,7 @@ class window_tk():
                 for i in range(len(self.destination)):
                     try:
                         self.odomentaryData(self.corners[self.indexId[i+1]][0],self.destination[i+1],i+1)
-                        self.botSteer()
+                        self.botSteer(i+1)
                     except:
                         continue
         if not ret:
@@ -107,10 +107,11 @@ class window_tk():
         self.canvas.itemconfig(self.bg,image=self.img)
         self.canvas.after(100,self.show_frames)
 
-    #def sendCommands(self,cmd):
-    #    self.ser.write(cmd.encode('Ascii'))
-    #    receive = self.ser.readline()
-    #    print(receive.decode('Ascii'))
+    def sendCommands(self,cmd):
+        self.ser.write(cmd.encode())
+        receive = self.ser.readline()
+        time.sleep(1)
+        print(receive.decode())
     def detect_aruco(self,frame):
         dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_250)
         parameters =  aruco.DetectorParameters()
@@ -126,8 +127,8 @@ class window_tk():
         unit_x_axis = [1.,0.]
         dest = np.array(dest)
         center = self.getMarkerCenter(corners)
-        right_edge_midpoint = (corners[1]+corners[2])/2.
-        unit_vec = (right_edge_midpoint-center)/np.linalg.norm(right_edge_midpoint-center) 
+        top_edge_midpoint = (corners[0]+corners[1])/2.
+        unit_vec = (top_edge_midpoint-center)/np.linalg.norm(top_edge_midpoint-center) 
         dest_unit_vec = (dest-center)/np.linalg.norm(dest-center) 
         dot = unit_vec[0]*unit_x_axis[0] + unit_vec[1]*unit_x_axis[1] 
         det = unit_vec[0]*unit_x_axis[1] - unit_vec[1]*unit_x_axis[0]
@@ -184,8 +185,25 @@ class window_tk():
         elif(Dl==Dr):
             pass
         
-    def botSteer(self):
-        pass
+    def botSteer(self,botId):
+        odo = self.odomentary[botId]
+        Dl = odo[0]
+        Dc = odo[1]
+        Dr = odo[2]
+        theta = odo[3]
+        dist_theta = odo[4]
+        if(Dl>Dr and abs(Dl-Dr)>20): #right 
+            if((theta > 0 or theta < 180) and (dist_theta > 180 or dist_theta <0)):
+                angle = abs(theta - dist_theta)
+                ticks = angle%15
+                ticks = ticks*100
+                cmd = "<4 "+ticks+">"
+                self.sendCommands(cmd)
+        #elif(Dl<Dr and abs(Dl-Dr)>20): # left
+        #    self.sendCommands()
+        #elif(abs(Dl-Dr)<=10): # straight
+        #    self.SendCommands()
+
     #def isReady(self,interval,currentTime=round(time.time()*1000),prevTime=round(time.time()*1000)):
     #    while((currentTime - prevTime) < interval):
     #        currentTime = round(time.time()*1000)
