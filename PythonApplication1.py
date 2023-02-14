@@ -35,7 +35,7 @@ class window_tk():
         self.vid = None
         self.ids = [5,7,10]
         self.indexId = {}
-        self.ser = serial.Serial(port="COM7",baudrate=115200,bytesize=8,timeout=2,stopbits=serial.STOPBITS_ONE)
+        self.ser = serial.Serial(port="COM3",baudrate=115200,bytesize=8,timeout=2,stopbits=serial.STOPBITS_ONE)
         self.oval = None
         self.destination = {} # save the final point for travesring also initialize how many bot arre there
         self.odomentary = {}
@@ -68,7 +68,7 @@ class window_tk():
         self.canvas.unbind('<Button-1>')
         print("Destination",self.destination)
     def activate_video(self):
-        self.vid = cv2.VideoCapture(0)
+        self.vid = cv2.VideoCapture(1)
         self.vid.set(cv2.CAP_PROP_FRAME_WIDTH,640)
         self.vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.canvas.pack(anchor= tk.NW)
@@ -108,19 +108,22 @@ class window_tk():
         self.canvas.after(100,self.show_frames)
 
     def sendCommands(self,cmd):
+        print("cmds--.",cmd)
         self.ser.write(cmd.encode())
+        print("cmds sent")
         receive = self.ser.readline()
         time.sleep(1)
         print(receive.decode())
     def detect_aruco(self,frame):
-        dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_250)
-        parameters =  aruco.DetectorParameters()
-        detector = aruco.ArucoDetector(dictionary, parameters)
-        # old cv2 version aruco
-        #aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
-        #arucoParams = aruco.DetectorParameters_create()
-        #corners, ids, rejected = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=arucoParams)
-        corners, ids, rejected = detector.detectMarkers(frame)
+        # dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_250)
+        # parameters =  aruco.DetectorParameters()
+        # detector = aruco.ArucoDetector(dictionary, parameters)
+        # old cv2 version aruc
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
+        arucoParams = aruco.DetectorParameters_create()
+        corners, ids, rejected = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=arucoParams)
+        # corners, ids, rejected = detector.detectMarkers(frame)
         return corners,ids
     def anglerotated(self,corners,dest):
         print("inside it")
@@ -192,17 +195,31 @@ class window_tk():
         Dr = odo[2]
         theta = odo[3]
         dist_theta = odo[4]
-        if(Dl>Dr and abs(Dl-Dr)>20): #right 
-            if((theta > 0 or theta < 180) and (dist_theta > 180 or dist_theta <0)):
-                angle = abs(theta - dist_theta)
-                ticks = angle%15
-                ticks = ticks*100
-                cmd = "<4 "+ticks+">"
-                self.sendCommands(cmd)
-        #elif(Dl<Dr and abs(Dl-Dr)>20): # left
-        #    self.sendCommands()
-        #elif(abs(Dl-Dr)<=10): # straight
-        #    self.SendCommands()
+        if(Dl>Dr and abs(Dl-Dr)>20): #right
+            print("inside 1st if")
+            angle = abs(theta - dist_theta)
+            print(angle)
+            ticks = angle%15
+            ticks = int(ticks*50)
+            cmd = "<4 "+str(ticks)+">"
+            print(cmd)
+            self.sendCommands(cmd)
+        elif(Dl<Dr and abs(Dl-Dr)>20): # left
+            angle = abs(theta - dist_theta)
+            print(angle)
+            ticks = angle%15
+            ticks = int(ticks*50)
+            cmd = "<3 "+str(ticks)+">"
+            print(cmd)
+            self.sendCommands(cmd)
+        # elif(abs(Dl-Dr)<=10): # straight
+        #     angle = abs(theta - dist_theta)
+        #     print(angle)
+        #     ticks = angle % 15
+        #     ticks = int(ticks * 50)
+        #     cmd = "<1 500>"
+        #     print(cmd)
+        #     self.sendCommands(cmd)
 
     #def isReady(self,interval,currentTime=round(time.time()*1000),prevTime=round(time.time()*1000)):
     #    while((currentTime - prevTime) < interval):
