@@ -247,7 +247,7 @@ class window_tk():
             maze = binary_val.tolist()
             start= (0,0)
             end = (2,0)
-            path = self.astar(maze, start, end)
+            #path = self.astar(maze, start, end)
             # print(path)
         except:
             print("error in detection")
@@ -265,7 +265,19 @@ class window_tk():
                 for i in range(len(self.destination)):
                     try:
                         destIndex = self.findindex(self.destination[i+1],array_of_center)
+                        (dest_x,dest_y) = destIndex
+                        startIndex = self.findindex(cali,array_of_center)
+                        (start_x,start_y)= startIndex
+                        path = self.astar(maze,(dest_x,dest_y),(start_x,start_y))
+                        print(path)
+                        p = self.IndexToPoints(path[1:],array_of_center)
                         print("destination index",destIndex)
+                        if len(p)>0:
+                            for j in p:
+                                if  math.dest(self.getMarkerCenter(self.corners[0][0]),j[0]) >=10:
+                                    j[1] = True
+                                if j[1] == False:
+
                         self.odomentaryData(self.corners[self.indexId[i+1]][0],self.destination[i+1],i+1)
                         self.botSteer(i+1)
                     except:
@@ -295,6 +307,12 @@ class window_tk():
                     if math.dist(arr[r][c][1],dest)<=50:
                         index = [r,c]
         return index
+    def IndexToPoints(self,path,arr):
+        temp = []
+        for (x,y) in path:
+            x = [arr[x][y][1],False]
+            temp.append(x)
+        return temp
     def detect_aruco(self,frame):
         # dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_250)
         # parameters =  aruco.DetectorParameters()
