@@ -48,7 +48,10 @@ class window_tk():
         self.indexId = {}
         self.ser = serial.Serial(port="COM3",baudrate=115200,bytesize=8,timeout=2,stopbits=serial.STOPBITS_ONE)
         self.oval = None
+        self.starEnable = True
         self.destination = {} # save the final point for travesring also initialize how many bot arre there
+        self.tempDestination  = {} #temp
+        self.tempId = 0
         self.odomentary = {}
         self.side = tk.Frame()
         self.but1 = tk.Button(self.side,text="start")
@@ -264,24 +267,27 @@ class window_tk():
             if(len(self.destination)>0):
                 for i in range(len(self.destination)):
                     try:
+                        p = []
                         destIndex = self.findindex(self.destination[i+1],array_of_center)
                         (dest_x,dest_y) = destIndex
                         startIndex = self.findindex(cali,array_of_center)
                         (start_x,start_y)= startIndex
-                        path = self.astar(maze,(dest_x,dest_y),(start_x,start_y))
+                        if self.starEnable:
+                             path = self.astar(maze,(dest_x,dest_y),(start_x,start_y))
+                             if len(path)>0:
+                                p = self.IndexToPoints(path[1:], array_of_center)
+                                self.starEnable = False;
                         print(path)
-                        p = self.IndexToPoints(path[1:],array_of_center)
                         print("destination index",destIndex)
-                        if len(p)>0:
-                            for j in p:
-                                if  math.dest(self.getMarkerCenter(self.corners[0][0]),j[0]) >=10:
-                                    j[1] = True
-                                if j[1] == False:
-
-                        self.odomentaryData(self.corners[self.indexId[i+1]][0],self.destination[i+1],i+1)
-                        self.botSteer(i+1)
+                        if len(p) > 0:
+                            if math.dest(self.getMarkerCenter(self.corners[0][0]), p[self.tempId][0]) >= 10:
+                                self.odomentaryData(self.corners[self.indexId[i + 1]][0],p[self.tempId][0] , i + 1)
+                                self.botSteer(i + 1)
+                            else:
+                                self.tempId +=1
+                       # self.odomentaryData(self.corners[self.indexId[i+1]][0],self.destination[i+1],i+1)
                     except:
-                        continue
+                        print("error")
         if not ret:
             print("can't receive the end of the frame")
             exit
