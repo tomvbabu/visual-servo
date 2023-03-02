@@ -242,18 +242,16 @@ class window_tk():
         outs = self.detect(inputImage)
         class_ids, confidences, boxes, points = self.unwraping(inputImage, outs[0])
         array_of_center = None
-        try:
+        if array_of_center is None:
             white_list, square_point, sq_l = self.list_dim(class_ids, points,boxes)  # sq_l is the pix length of each obstacle
             # cv2.circle(self.frame,(int(square_point[0][0]),int(square_point[0][1])),10,(255,0,0),-1)
             path_centers = self.allgrid(white_list, square_point, sq_l)
             array_of_center, binary_val = self.createarray(path_centers)
             maze = binary_val.tolist()
-            start= (0,0)
-            end = (2,0)
+            #start= (0,0)
+            #end = (2,0)
             #path = self.astar(maze, start, end)
             # print(path)
-        except:
-            print("error in detection")
         self.frame = cv2.cvtColor(self.frame,cv2.COLOR_BGR2RGB)
         corners,ids = self.detect_aruco(self.frame)
         if len(corners) != 0:
@@ -266,28 +264,28 @@ class window_tk():
             aruco.drawDetectedMarkers(self.frame, corners)
             if(len(self.destination)>0):
                 for i in range(len(self.destination)):
-                    try:
-                        p = []
-                        destIndex = self.findindex(self.destination[i+1],array_of_center)
-                        (dest_x,dest_y) = destIndex
-                        startIndex = self.findindex(cali,array_of_center)
+                    p = []
+                    destIndex = self.findindex(self.destination[i+1],array_of_center)
+                    (dest_x,dest_y) = destIndex
+                    startIndex = self.findindex(cali,array_of_center)
+                    if startIndex is not None:
                         (start_x,start_y)= startIndex
                         if self.starEnable:
                              path = self.astar(maze,(dest_x,dest_y),(start_x,start_y))
                              if len(path)>0:
                                 p = self.IndexToPoints(path[1:], array_of_center)
-                                self.starEnable = False;
-                        print(path)
-                        print("destination index",destIndex)
-                        if len(p) > 0:
-                            if math.dest(self.getMarkerCenter(self.corners[0][0]), p[self.tempId][0]) >= 10:
-                                self.odomentaryData(self.corners[self.indexId[i + 1]][0],p[self.tempId][0] , i + 1)
-                                self.botSteer(i + 1)
-                            else:
-                                self.tempId +=1
+                                self.starEnable = False
+                        # print(path)
+                    print("destination index",destIndex)
+                    if len(p) > 0:
+                        if math.dist(self.getMarkerCenter(self.corners[0][0]), p[self.tempId][0]) >= 10:
+                            self.odomentaryData(self.corners[self.indexId[i + 1]][0],p[self.tempId][0] , i + 1)
+                            self.botSteer(i + 1)
+                        else:
+                            self.tempId +=1
                        # self.odomentaryData(self.corners[self.indexId[i+1]][0],self.destination[i+1],i+1)
-                    except:
-                        print("error")
+                    #except:
+                       # print("error")
         if not ret:
             print("can't receive the end of the frame")
             exit
