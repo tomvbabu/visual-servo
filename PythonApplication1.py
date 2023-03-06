@@ -49,6 +49,10 @@ class window_tk():
         self.ser = serial.Serial(port="COM3",baudrate=115200,bytesize=8,timeout=2,stopbits=serial.STOPBITS_ONE)
         self.oval = None
         self.starEnable = True
+        self.detectAgain = True
+        self.arrayOfCenter = None
+        self.binaryVal = None
+        self.maze = None
         self.destination = {} # save the final point for travesring also initialize how many bot arre there
         self.tempDestination  = {} #temp
         self.tempId = 0
@@ -131,7 +135,6 @@ class window_tk():
                 if (class_scores[class_id] > 0.25):
                     confidences.append(conf)
                     class_ids.append(class_id)
-
                     x, y, w, h = row[0].item(), row[1].item(), row[2].item(), row[3].item()
                     new_x = x * x_factor
                     new_y = y * y_factor
@@ -235,57 +238,55 @@ class window_tk():
                     full_view[x][y] = 0
                 l += 1
         return value_array, full_view  # value_array gives the center and full_view gives the binary representation
-
-    def show_frames(self):
-        ret,self.frame = self.vid.read()
+    
+    def anyObstacleDetect(self):
         inputImage = self.format_yolov5(self.frame)
         outs = self.detect(inputImage)
         class_ids, confidences, boxes, points = self.unwraping(inputImage, outs[0])
-        array_of_center = None
-        if array_of_center is None:
-            white_list, square_point, sq_l = self.list_dim(class_ids, points,boxes)  # sq_l is the pix length of each obstacle
-            # cv2.circle(self.frame,(int(square_point[0][0]),int(square_point[0][1])),10,(255,0,0),-1)
-            path_centers = self.allgrid(white_list, square_point, sq_l)
-            array_of_center, binary_val = self.createarray(path_centers)
-            maze = binary_val.tolist()
-            #start= (0,0)
-            #end = (2,0)
-            #path = self.astar(maze, start, end)
-            # print(path)
-        self.frame = cv2.cvtColor(self.frame,cv2.COLOR_BGR2RGB)
-        corners,ids = self.detect_aruco(self.frame)
-        if len(corners) != 0:
-            temp = np.array(ids)
-            temp = temp.tolist()
-            self.idtobotmatcher(temp)
-            self.corners  = np.array(corners)
-            cali = self.getMarkerCenter(self.corners[0][0])
-            print("calibration",cali)
-            aruco.drawDetectedMarkers(self.frame, corners)
-            if(len(self.destination)>0):
-                for i in range(len(self.destination)):
-                    p = []
-                    destIndex = self.findindex(self.destination[i+1],array_of_center)
-                    (dest_x,dest_y) = destIndex
-                    startIndex = self.findindex(cali,array_of_center)
-                    if startIndex is not None:
-                        (start_x,start_y)= startIndex
-                        if self.starEnable:
-                             path = self.astar(maze,(dest_x,dest_y),(start_x,start_y))
-                             if len(path)>0:
-                                p = self.IndexToPoints(path[1:], array_of_center)
-                                self.starEnable = False
-                        # print(path)
-                    print("destination index",destIndex)
-                    if len(p) > 0:
-                        if math.dist(self.getMarkerCenter(self.corners[0][0]), p[self.tempId][0]) >= 10:
-                            self.odomentaryData(self.corners[self.indexId[i + 1]][0],p[self.tempId][0] , i + 1)
-                            self.botSteer(i + 1)
-                        else:
-                            self.tempId +=1
-                       # self.odomentaryData(self.corners[self.indexId[i+1]][0],self.destination[i+1],i+1)
-                    #except:
-                       # print("error")
+        white_list, square_point, sq_l = self.list_dim(class_ids, points,boxes)  # sq_l is the pix length of each obstacle
+        path_centers = self.allgrid(white_list, square_point, sq_l)
+        array_of_center, binary_val = self.createarray(path_centers)
+        return array_of_center,binary_val
+    
+    def show_frames(self):
+        ret,self.frame = self.vid.read()
+        if self.detectAgain: # Flag can be changed with start button
+            self.array_of_center,self.binary_val = self.anyObstacleDetect()
+            if self.array_of_center is not None:
+                self.maze = self.binary_val.tolist()
+                self.detectAgain = False
+        else:
+            self.frame = cv2.cvtColor(self.frame,cv2.COLOR_BGR2RGB)
+            corners,ids = self.detect_aruco(self.frame)
+            if len(corners) != 0:
+                temp = np.array(ids)
+                temp = temp.tolist()
+                self.idtobotmatcher(temp)
+                self.corners  = np.array(corners)
+                aruco.drawDetectedMarkers(self.frame, corners)
+                if(len(self.destination)>0):
+                    for i in range(len(self.destination)):
+                        p = []
+                        destIndex = self.findindex(self.destination[i+1],self.array_of_center)
+                        (dest_x,dest_y) = destIndex
+                        startIndex = self.findindex(self.getMarkerCenter(self.corners[self.indexId[i + 1]][0]),self.array_of_center)
+                        if startIndex is not None:
+                            (start_x,start_y)= startIndex
+                            if self.starEnable:
+                                path = self.astar(self.maze,(start_x,start_y),(dest_x,dest_y))
+                                if len(path)>0:
+                                    p = self.IndexToPoints(path[1:],self.array_of_center)
+                                    self.tempId = 0
+                                    self.starEnable = False
+                        if len(p) > 0:
+                            if math.dist(self.getMarkerCenter(self.corners[self.indexId[i+1]][0]), p[self.tempId][0]) >= 10:
+                                self.odomentaryData(self.corners[self.indexId[i + 1]][0],p[self.tempId][0] , i + 1)
+                                self.botSteer(i + 1)
+                            else:
+                                self.tempId +=1
+                        # self.odomentaryData(self.corners[self.indexId[i+1]][0],self.destination[i+1],i+1)
+                        #except:
+                        # print("error")
         if not ret:
             print("can't receive the end of the frame")
             exit
