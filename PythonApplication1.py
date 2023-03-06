@@ -48,21 +48,27 @@ class window_tk():
         self.indexId = {}
         self.ser = serial.Serial(port="COM3",baudrate=115200,bytesize=8,timeout=2,stopbits=serial.STOPBITS_ONE)
         self.oval = None
-        self.starEnable = True
+        self.starEnable = False
         self.detectAgain = True
         self.arrayOfCenter = None
         self.binaryVal = None
         self.maze = None
+        self.path = []
         self.destination = {} # save the final point for travesring also initialize how many bot arre there
         self.tempDestination  = {} #temp
         self.tempId = 0
         self.odomentary = {}
         self.side = tk.Frame()
-        self.but1 = tk.Button(self.side,text="start")
+        self.but1 = tk.Button(self.side,text="start",command=lambda:self.startPathFinding())
         self.but2 = tk.Button(self.side,text="stop")
         self.but3 = tk.Button(self.side,text="Bot A",command=lambda:self.botDestination(1,"red"))
         self.but4 = tk.Button(self.side,text="Bot B",command=lambda:self.botDestination(2,"green"))
-        
+
+    def startPathFinding(self):
+        self.starEnable = True
+        self.path = []
+        self.tempId = 0
+
     def botDestination(self,bot,color):
         self.canvas.bind('<Motion>',self.motion)
         self.canvas.bind('<Button-1>',lambda event,bot=bot,color=color: self.drawDestination(event,bot,color))
@@ -84,7 +90,7 @@ class window_tk():
             print("nothing to delete")
         self.canvas.create_oval(x-10,y-10,x+10,y+10,fill=color,outline="white",tags=color)
         self.canvas.unbind('<Button-1>')
-        print("Destination",self.destination)
+        #print("Destination",self.destination)
     def activate_video(self):
         self.net = self.build_model(self.is_cuda)
         self.vid = cv2.VideoCapture(1)
@@ -107,7 +113,7 @@ class window_tk():
         return result
 
     def detect(self,image):
-        blob = cv2.dnn.blobFromImage(image, 1 / 255.0, (self.camWidth, self.camWidth), swapRB=True, crop=False)
+        blob = cv2.dnn.blobFromImage(image, 1 / 255.0, (self.camWidth, self.camWidth), swapRB=False, crop=False)
         self.net.setInput(blob)
         preds = self.net.forward()
         return preds
@@ -250,43 +256,64 @@ class window_tk():
     
     def show_frames(self):
         ret,self.frame = self.vid.read()
-        if self.detectAgain: # Flag can be changed with start button
-            self.array_of_center,self.binary_val = self.anyObstacleDetect()
-            if self.array_of_center is not None:
-                self.maze = self.binary_val.tolist()
-                self.detectAgain = False
-        else:
-            self.frame = cv2.cvtColor(self.frame,cv2.COLOR_BGR2RGB)
-            corners,ids = self.detect_aruco(self.frame)
-            if len(corners) != 0:
-                temp = np.array(ids)
-                temp = temp.tolist()
-                self.idtobotmatcher(temp)
-                self.corners  = np.array(corners)
-                aruco.drawDetectedMarkers(self.frame, corners)
-                if(len(self.destination)>0):
-                    for i in range(len(self.destination)):
-                        p = []
-                        destIndex = self.findindex(self.destination[i+1],self.array_of_center)
-                        (dest_x,dest_y) = destIndex
-                        startIndex = self.findindex(self.getMarkerCenter(self.corners[self.indexId[i + 1]][0]),self.array_of_center)
-                        if startIndex is not None:
+        self.frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
+        corners, ids = self.detect_aruco(self.frame)
+        try:
+            tempCenter,self.binaryVal = self.anyObstacleDetect()
+            if tempCenter is not None:
+                self.arrayOfCenter = tempCenter
+                self.maze = self.binaryVal.tolist()
+        except:
+            print("obstacle not detected")
+        #if self.detectAgain: # Flag can be changed with start button
+            # try:
+            #     self.arrayOfCenter,self.binaryVal = self.anyObstacleDetect()
+            # except:
+            #     print("Obstacles not detected:error")
+            # if self.arrayOfCenter is not None:
+            #     self.maze = self.binaryVal.tolist()
+            #     self.detectAgain = False
+        if len(corners) != 0:
+            temp = np.array(ids)
+            temp = temp.tolist()
+            self.idtobotmatcher(temp)
+            self.corners = np.array(corners)
+            aruco.drawDetectedMarkers(self.frame, corners)
+            if self.arrayOfCenter is not None:
+                for (x, y), val in np.ndenumerate(self.arrayOfCenter):
+                    if val[0] == 0:
+                        print(val[1][0], val[1][1])
+                        cv2.circle(self.frame, (round(val[1][0]), round(val[1][1])), 10, (0, 255, 0), thickness=1)
+            if(len(self.destination)>0):
+                #for i in range(len(self.destination)):
+                if self.arrayOfCenter is not None:
+                    if self.starEnable:
+                        destIndex = self.findindex(self.destination[1], self.arrayOfCenter)
+                        #print("destination index",destIndex)
+                        center = self.getMarkerCenter(self.corners[self.indexId[1]][0])
+                        print(center)
+                        startIndex = self.findindex(center,self.arrayOfCenter)
+                        #print("start index",startIndex)
+                        if destIndex is not None and startIndex is not None:
+                            (dest_x, dest_y) = destIndex
                             (start_x,start_y)= startIndex
-                            if self.starEnable:
-                                path = self.astar(self.maze,(start_x,start_y),(dest_x,dest_y))
-                                if len(path)>0:
-                                    p = self.IndexToPoints(path[1:],self.array_of_center)
-                                    self.tempId = 0
-                                    self.starEnable = False
-                        if len(p) > 0:
-                            if math.dist(self.getMarkerCenter(self.corners[self.indexId[i+1]][0]), p[self.tempId][0]) >= 10:
-                                self.odomentaryData(self.corners[self.indexId[i + 1]][0],p[self.tempId][0] , i + 1)
-                                self.botSteer(i + 1)
-                            else:
-                                self.tempId +=1
-                        # self.odomentaryData(self.corners[self.indexId[i+1]][0],self.destination[i+1],i+1)
-                        #except:
-                        # print("error")
+                            p = self.astar(self.maze, (start_x, start_y), (dest_x, dest_y))
+                            print("p value",p)
+                            if len(p)>0:
+                                self.path = self.IndexToPoints(p[1:], self.arrayOfCenter)
+                                self.starEnable = False
+                                print("path value",self.path)
+                if len(self.path) > 0:
+                    print("array index increment",self.tempId)
+                    if round(math.dist(self.getMarkerCenter(self.corners[self.indexId[1]][0]), self.path[self.tempId][0])) >= 10:
+                        print("distance",round(math.dist(self.getMarkerCenter(self.corners[self.indexId[1]][0]), self.path[self.tempId][0])))
+                        self.odomentaryData(self.corners[self.indexId[1]][0],self.path[self.tempId][0],1)
+                        self.botSteer(1)
+                    else:
+                        self.tempId +=1
+                    # self.odomentaryData(self.corners[self.indexId[i+1]][0],self.destination[i+1],i+1)
+                    #except:
+                    # print("error")
         if not ret:
             print("can't receive the end of the frame")
             exit
@@ -304,12 +331,12 @@ class window_tk():
         print(receive.decode())
     def findindex(self,dest,arr):
         row,col = np.shape(arr)
-        print("inside destination")
         index = None
         if arr is not None:
             for r in range(row):
                 for c in range(col):
-                    if math.dist(arr[r][c][1],dest)<=50:
+                    dist = round(math.dist(arr[r][c][1],dest))
+                    if dist<=70:
                         index = [r,c]
         return index
     def IndexToPoints(self,path,arr):
@@ -381,7 +408,7 @@ class window_tk():
         Dr = odo[2]
         theta = odo[3]
         dist_theta = odo[4]
-        if(Dc >= 25):
+        if(Dc >= 15):
             if(Dl>Dr and abs(Dl-Dr)>20): #right
                 # angle = abs(theta - dist_theta)
                 # print(angle)
@@ -400,7 +427,7 @@ class window_tk():
                 self.sendCommands(cmd)
             elif(abs(Dl-Dr)<=20): # straight
                 ticks = int(200)
-                cmd = "< 1 "+ str(ticks)+ ">"
+                cmd = "<1 "+ str(ticks)+">"
                 print(cmd)
                 self.sendCommands(cmd)
 
